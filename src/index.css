@@ -1,0 +1,68 @@
+@import '@fontsource/jost/400.css';
+@import '@fontsource/jost/500.css';
+@import '@fontsource/jost/600.css';
+@import '@fontsource/jost/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Reference palette */
+  --ref-primary: #09649c;
+  --ref-ice: #f4f9ff;
+  --ref-muted-blue: #7891b6;
+  --ref-teal: #183d54;
+  --ref-white: #ffffff;
+  --ref-ink: #1e2f46;
+  --ref-green: #5fa947;
+  --ref-green-dark: #176631;
+  --ref-line: #e2e7ec;
+
+  /* Semantic tokens */
+  --color-primary: var(--ref-primary);
+  --color-text: var(--ref-ink);
+  --color-surface: var(--ref-white);
+  --color-action: var(--ref-green);
+  --background: 210 100% 98%;
+  --foreground: 213 40% 20%;
+  --border: 210 16% 90%;
+  --input: 210 16% 90%;
+  --ring: 207 88% 32%;
+  --radius: 1rem;
+  font-family: 'Century Gothic', 'Jost', sans-serif;
+  color: var(--color-text);
+  background: var(--ref-ice);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; background: var(--ref-ice); }
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--color-text);
+  background: var(--ref-ice);
+  font-size: 16px;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+button, a { -webkit-tap-highlight-color: transparent; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+a { color: inherit; }
+svg { flex-shrink: 0; }
+:focus-visible { outline: 3px solid var(--ref-primary); outline-offset: 3px; }
+::selection { color: var(--ref-ink); background: #c9e3f7; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
