@@ -32,7 +32,7 @@ jobs:
         run: npm ci --include=dev
 
       - name: Verify TypeScript
-        run: npx tsc --version
+        run: ./node_modules/.bin/tsc --version
 
       - name: Build application
         run: npm run build
