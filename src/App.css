@@ -366,9 +366,11 @@ button.home-card:hover { border-color: var(--ref-muted-blue); }
 .answers > button { width: 100%; min-height: 56px; margin-top: 10px; padding: 13px 15px; border: 1px solid #cfd8e0; border-radius: 12px; background: rgb(255 255 255 / 80%); font-size: 14px; line-height: 1.45; text-align: left; }
 .answers > button:not(:disabled):hover { border-color: var(--ref-primary); }
 .answers > button:disabled { opacity: 1; }
-.answers > button.is-selected:not(.is-correct) { border-color: #a43d3d; background: #fff1f1; }
-.answers > button.is-correct { border-color: #477f4b; background: #edf8ec; }
-
+.answers > button.is-selected,
+.answers > button.is-correct {
+  border-color: var(--ref-primary);
+  background: var(--ref-ice);
+}
 .feedback { display: grid; grid-template-columns: auto 1fr; gap: 11px; margin: 17px 0; padding: 15px; border-radius: 13px; }
 .feedback > svg { width: 23px; }
 .feedback p { margin: 4px 0 0; color: var(--ref-ink); font-size: 13px; }
