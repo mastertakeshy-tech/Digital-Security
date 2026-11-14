@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import confetti from 'canvas-confetti'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -33,7 +34,7 @@ type QuizOption = { text: string; feedback: string; correct?: boolean }
 type QuizQuestion = { question: string; options: QuizOption[] }
 type LessonPhase = 'intro' | 'content'
 type StoredProgress = {
-  version: 2
+  version: 1
   screen: Screen
   lessonIndex: number
   lessonPhase: LessonPhase
@@ -41,8 +42,6 @@ type StoredProgress = {
   scenarioAnswer: number | null
   quizStep: number
   quizAnswers: (number | null)[]
-  questionOrder: number[]
-  optionOrders: number[][]
   resourceKind: ResourceKind
 }
 
@@ -56,7 +55,7 @@ function loadProgress(): StoredProgress | null {
     if (!saved || typeof saved !== 'object') return null
     const progress = saved as Partial<StoredProgress>
     if (
-      progress.version !== 2 ||
+      progress.version !== 1 ||
       !progress.screen || !screens.includes(progress.screen) ||
       typeof progress.lessonIndex !== 'number' || !Number.isInteger(progress.lessonIndex) || progress.lessonIndex < 0 || progress.lessonIndex > 3 ||
       (progress.lessonPhase !== 'intro' && progress.lessonPhase !== 'content') ||
@@ -65,9 +64,6 @@ function loadProgress(): StoredProgress | null {
       typeof progress.quizStep !== 'number' || !Number.isInteger(progress.quizStep) || progress.quizStep < 0 || progress.quizStep > 4 ||
       !Array.isArray(progress.quizAnswers) || progress.quizAnswers.length !== 4 ||
       progress.quizAnswers.some((answer, index) => answer !== null && (typeof answer !== 'number' || !Number.isInteger(answer) || answer < 0 || answer >= quizQuestions[index].options.length)) ||
-      !isValidOrder(progress.questionOrder, quizQuestions.length) ||
-!Array.isArray(progress.optionOrders) || progress.optionOrders.length !== quizQuestions.length ||
-!progress.optionOrders.every((order, index) => isValidOrder(order, quizQuestions[index].options.length)) ||
       !progress.resourceKind || !resourceKinds.includes(progress.resourceKind)
     ) return null
     return progress as StoredProgress
@@ -137,37 +133,7 @@ const quizQuestions: QuizQuestion[] = [
     ],
   },
 ]
-function isValidOrder(order: unknown, expectedLength: number): order is number[] {
-  if (!Array.isArray(order) || order.length !== expectedLength) return false
-  const values = new Set(order)
-  return values.size === expectedLength && order.every(value =>
-    Number.isInteger(value) && value >= 0 && value < expectedLength
-  )
-}
 
-function shuffledIndices(length: number) {
-  const indices = Array.from({ length }, (_, index) => index)
-
-  for (let index = indices.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1))
-    const current = indices[index]
-    indices[index] = indices[randomIndex]
-    indices[randomIndex] = current
-  }
-
-  return indices
-}
-
-function createQuizAttempt() {
-  return {
-    questionOrder: shuffledIndices(quizQuestions.length),
-    optionOrders: quizQuestions.map(question =>
-      shuffledIndices(question.options.length)
-    ),
-  }
-}
-
-const defaultQuizAttempt = createQuizAttempt()
 const scenarioOptions: QuizOption[] = [
   { text: 'Use the link and sign in quickly before the account is suspended.', feedback: 'That could expose your credentials. The sender and web address are not official, and the deadline is a pressure tactic.' },
   { text: 'Reply with your password, but do not include the MFA code.', feedback: 'Never send your password by message. Legitimate support staff will not ask you to disclose your credentials this way.' },
@@ -286,13 +252,6 @@ function App() {
   const [scenarioAnswer, setScenarioAnswer] = useState<number | null>(initialProgress?.scenarioAnswer ?? null)
   const [quizStep, setQuizStep] = useState(initialProgress?.quizStep ?? 0)
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(initialProgress?.quizAnswers ?? [null, null, null, null])
-  const [questionOrder, setQuestionOrder] = useState<number[]>(
-  initialProgress?.questionOrder ?? defaultQuizAttempt.questionOrder
-)
-
-const [optionOrders, setOptionOrders] = useState<number[][]>(
-  initialProgress?.optionOrders ?? defaultQuizAttempt.optionOrders
-)
   const [resourceKind, setResourceKind] = useState<ResourceKind>(initialProgress?.resourceKind ?? 'guides')
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const mainRef = useRef<HTMLElement>(null)
@@ -301,12 +260,13 @@ const [optionOrders, setOptionOrders] = useState<number[][]>(
     answer !== null && quizQuestions[index].options[answer].correct ? score + 1 : score
   ), 0), [quizAnswers])
   const overallProgress = completedLessons.filter(Boolean).length * 20 + (scenarioAnswer !== null ? 10 : 0) + (quizStep === 4 ? 10 : 0)
+  const previousProgressRef = useRef(overallProgress)
 
   const go = (next: Screen) => setScreen(next)
 
   useEffect(() => {
     const progress: StoredProgress = {
-      version: 2,
+      version: 1,
       screen,
       lessonIndex,
       lessonPhase,
@@ -314,8 +274,6 @@ const [optionOrders, setOptionOrders] = useState<number[][]>(
       scenarioAnswer,
       quizStep,
       quizAnswers,
-      questionOrder,
-      optionOrders,
       resourceKind,
     }
     try {
@@ -323,12 +281,33 @@ const [optionOrders, setOptionOrders] = useState<number[][]>(
     } catch {
       // The module remains usable if browser storage is unavailable.
     }
-  }, [screen, lessonIndex, lessonPhase, completedLessons, scenarioAnswer, quizStep, quizAnswers, questionOrder, optionOrders, resourceKind])
+  }, [screen, lessonIndex, lessonPhase, completedLessons, scenarioAnswer, quizStep, quizAnswers, resourceKind])
 
-useEffect(() => {
-  window.scrollTo({ top: 0, behavior: 'instant' })
-  mainRef.current?.focus({ preventScroll: true })
-}, [screen, lessonPhase, lessonIndex, resourceKind, quizStep])
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    mainRef.current?.focus({ preventScroll: true })
+  }, [screen, lessonPhase, lessonIndex, resourceKind, quizStep])
+
+  useEffect(() => {
+    const wasAlreadyComplete = previousProgressRef.current === 100
+    previousProgressRef.current = overallProgress
+    if (wasAlreadyComplete || overallProgress !== 100 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const colors = ['#09649c', '#5fa947', '#80c95c', '#c9e0f4', '#1e2f46']
+    const firstBurst = window.setTimeout(() => {
+      confetti({ particleCount: 90, spread: 80, origin: { y: 0.62 }, colors, disableForReducedMotion: true })
+    }, 120)
+    const secondBurst = window.setTimeout(() => {
+      confetti({ particleCount: 50, angle: 60, spread: 60, origin: { x: 0, y: 0.7 }, colors, disableForReducedMotion: true })
+      confetti({ particleCount: 50, angle: 120, spread: 60, origin: { x: 1, y: 0.7 }, colors, disableForReducedMotion: true })
+    }, 500)
+
+    return () => {
+      window.clearTimeout(firstBurst)
+      window.clearTimeout(secondBurst)
+      confetti.reset()
+    }
+  }, [overallProgress])
 
   const openLesson = (index: number, phase: 'intro' | 'content' = 'intro') => {
     setLessonIndex(index)
@@ -345,19 +324,15 @@ useEffect(() => {
   }
 
   const startQuiz = (index = 0) => {
-  const position = questionOrder.indexOf(index)
-  setQuizStep(position >= 0 ? position : 0)
-  go('quiz')
-}
+    setQuizStep(index)
+    go('quiz')
+  }
 
-const resetQuiz = () => {
-  const attempt = createQuizAttempt()
-  setQuestionOrder(attempt.questionOrder)
-  setOptionOrders(attempt.optionOrders)
-  setQuizAnswers([null, null, null, null])
-  setQuizStep(0)
-  go('quiz')
-}
+  const resetQuiz = () => {
+    setQuizAnswers([null, null, null, null])
+    setQuizStep(0)
+    go('quiz')
+  }
 
   const openResource = (kind: ResourceKind) => {
     setResourceKind(kind)
@@ -499,31 +474,30 @@ const resetQuiz = () => {
         {activeClue && <div className="clue-detail" role="status"><strong>{clueContent[activeClue].title}</strong><p>{clueContent[activeClue].text}</p></div>}
       </div>
       <fieldset className="answers"><legend>What is the safest next step?</legend>
-       {scenarioOptions.map((option, index) => {
-  const answered = scenarioAnswer !== null
-  const selected = scenarioAnswer === index
-  const status = answered && selected && option.correct
-    ? 'Your answer · Correct answer'
-    : answered && selected
-      ? 'Your answer'
-      : answered && option.correct
-        ? 'Correct answer'
-        : ''
-
-  return (
-    <button
-      key={option.text}
-      type="button"
-      disabled={answered}
-      aria-pressed={selected}
-      className={`${selected ? 'is-selected' : ''} ${answered && option.correct ? 'is-correct' : ''}`}
-      onClick={() => setScenarioAnswer(index)}
-    >
-      <span className="answer-text">{option.text}</span>
-      {status && <span className="answer-status">{status}</span>}
-    </button>
-  )
-})}
+        {scenarioOptions.map((option, index) => {
+          const answered = scenarioAnswer !== null
+          const selected = scenarioAnswer === index
+          const status = answered && selected && option.correct
+            ? 'Your answer · Correct answer'
+            : answered && selected
+              ? 'Your answer'
+              : answered && option.correct
+                ? 'Correct answer'
+                : ''
+          return (
+            <button
+              key={option.text}
+              type="button"
+              disabled={answered}
+              aria-pressed={selected}
+              className={`${selected ? 'is-selected' : ''} ${answered && option.correct ? 'is-correct' : ''}`}
+              onClick={() => setScenarioAnswer(index)}
+            >
+              <span className="answer-text">{option.text}</span>
+              {status && <span className="answer-status">{status}</span>}
+            </button>
+          )
+        })}
       </fieldset>
       {scenarioAnswer !== null && feedback(scenarioOptions[scenarioAnswer])}
       <LessonControls step={3} onBack={() => openLesson(2, 'content')} onNext={() => openLesson(3)} nextDisabled={scenarioAnswer === null} />
@@ -538,7 +512,7 @@ const resetQuiz = () => {
         <div className="assessment-progress"><span>Your<br />progress</span><strong>{overallProgress}%</strong><div className="green-progress" role="progressbar" aria-label="Module progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallProgress}><span style={{ width: `${overallProgress}%` }} /></div></div>
         <div className="assessment-list">
           {names.map((name, index) => {
-            const status = quizAnswers[index] !== null ? 'Completed' : questionOrder[quizStep] === index ? 'In progress' : 'Not started'
+            const status = quizAnswers[index] !== null ? 'Completed' : quizStep === index ? 'In progress' : 'Not started'
             return <button type="button" key={name} onClick={() => startQuiz(index)}><strong>{name}</strong><span>{status}</span><ChevronRight /></button>
           })}
         </div>
@@ -548,55 +522,33 @@ const resetQuiz = () => {
 
   const renderQuiz = () => {
     const complete = quizStep === quizQuestions.length
-    const questionIndex = questionOrder[quizStep] ?? questionOrder[0]
-const currentQuestion = quizQuestions[questionIndex]
-const selectedOptionIndex = quizAnswers[questionIndex]
-const selectedOption = selectedOptionIndex !== null
-  ? currentQuestion.options[selectedOptionIndex]
-  : null
     return (
       <section className="quiz-screen" aria-labelledby="screen-title">
-        <div className="lesson-heading"><span>Knowledge check</span><h1 id="screen-title" tabIndex={-1}>{complete ? 'Your result' : 'Assessment'}</h1><p>{complete ? 'Review your score and continue to the final recommendations.' : 'Choose one answer to see immediate, answer-specific feedback.'}</p></div>
+        <div className="lesson-heading"><span>Knowledge check</span><h1 id="screen-title" tabIndex={-1}>{complete ? 'Your result' : 'Assessment'}</h1><p>{complete ? 'Review your score and continue to the final recommendations.' : 'Choose one answer. Your result and a short explanation will appear after you select it.'}</p></div>
         {!complete ? <>
           <div className="quiz-status"><span>Question {quizStep + 1} of 4</span><strong>{quizScore} correct so far</strong></div>
           <div className="lesson-progress"><span style={{ width: `${(quizStep + 1) * 25}%` }} /></div>
-          <fieldset className="answers quiz-answers"><legend>{currentQuestion.question}</legend>
-            {optionOrders[questionIndex].map(optionIndex => {
-  const option = currentQuestion.options[optionIndex]
-  const answered = selectedOptionIndex !== null
-  const selected = selectedOptionIndex === optionIndex
-  const status = answered && selected && option.correct
-    ? 'Your answer · Correct answer'
-    : answered && selected
-      ? 'Your answer'
-      : answered && option.correct
-        ? 'Correct answer'
-        : ''
-
-  return (
-    <button
-      key={option.text}
-      type="button"
-      disabled={answered}
-      aria-pressed={selected}
-      className={`${selected ? 'is-selected' : ''} ${answered && option.correct ? 'is-correct' : ''}`}
-      onClick={() => {
-        if (answered) return
-        setQuizAnswers(previous => {
-          const next = [...previous]
-          next[questionIndex] = optionIndex
-          return next
-        })
-      }}
-    >
-      <span className="answer-text">{option.text}</span>
-      {status && <span className="answer-status">{status}</span>}
-    </button>
-  )
-})}
+          <fieldset className="answers quiz-answers"><legend>{quizQuestions[quizStep].question}</legend>
+            {quizQuestions[quizStep].options.map((option, index) => {
+              const answered = quizAnswers[quizStep] !== null
+              const selected = quizAnswers[quizStep] === index
+              const status = answered && selected && option.correct
+                ? 'Your answer · Correct answer'
+                : answered && selected
+                  ? 'Your answer'
+                  : answered && option.correct
+                    ? 'Correct answer'
+                    : ''
+              return <button key={option.text} type="button" disabled={answered} aria-pressed={selected} className={`${selected ? 'is-selected' : ''} ${answered && option.correct ? 'is-correct' : ''}`} onClick={() => {
+                if (answered) return
+                setQuizAnswers(previous => { const next = [...previous]; next[quizStep] = index; return next })
+              }}>
+                <span className="answer-text">{option.text}</span>
+                {status && <span className="answer-status">{status}</span>}
+              </button>
+            })}
           </fieldset>
-          {selectedOption && <>
-  {feedback(selectedOption)}
+          {quizAnswers[quizStep] !== null && <>
             {feedback(quizQuestions[quizStep].options[quizAnswers[quizStep] as number])}
             <button className="primary-green quiz-next" type="button" onClick={() => setQuizStep(step => step + 1)}>{quizStep === 3 ? 'See my result' : 'Next question'}<ArrowRight /></button>
           </>}
