@@ -281,10 +281,10 @@ function App() {
     }
   }, [screen, lessonIndex, lessonPhase, completedLessons, scenarioAnswer, quizStep, quizAnswers, resourceKind])
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' })
-    mainRef.current?.focus({ preventScroll: true })
-  }, [screen, lessonPhase, lessonIndex, resourceKind])
+useEffect(() => {
+  window.scrollTo({ top: 0, behavior: 'instant' })
+  mainRef.current?.focus({ preventScroll: true })
+}, [screen, lessonPhase, lessonIndex, resourceKind, quizStep])
 
   const openLesson = (index: number, phase: 'intro' | 'content' = 'intro') => {
     setLessonIndex(index)
