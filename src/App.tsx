@@ -451,7 +451,31 @@ useEffect(() => {
         {activeClue && <div className="clue-detail" role="status"><strong>{clueContent[activeClue].title}</strong><p>{clueContent[activeClue].text}</p></div>}
       </div>
       <fieldset className="answers"><legend>What is the safest next step?</legend>
-        {scenarioOptions.map((option, index) => <button key={option.text} type="button" disabled={scenarioAnswer !== null} className={`${scenarioAnswer === index ? 'is-selected' : ''} ${scenarioAnswer !== null && option.correct ? 'is-correct' : ''}`} onClick={() => setScenarioAnswer(index)}>{option.text}</button>)}
+       {scenarioOptions.map((option, index) => {
+  const answered = scenarioAnswer !== null
+  const selected = scenarioAnswer === index
+  const status = answered && selected && option.correct
+    ? 'Your answer · Correct answer'
+    : answered && selected
+      ? 'Your answer'
+      : answered && option.correct
+        ? 'Correct answer'
+        : ''
+
+  return (
+    <button
+      key={option.text}
+      type="button"
+      disabled={answered}
+      aria-pressed={selected}
+      className={`${selected ? 'is-selected' : ''} ${answered && option.correct ? 'is-correct' : ''}`}
+      onClick={() => setScenarioAnswer(index)}
+    >
+      <span className="answer-text">{option.text}</span>
+      {status && <span className="answer-status">{status}</span>}
+    </button>
+  )
+})}
       </fieldset>
       {scenarioAnswer !== null && feedback(scenarioOptions[scenarioAnswer])}
       <LessonControls step={3} onBack={() => openLesson(2, 'content')} onNext={() => openLesson(3)} nextDisabled={scenarioAnswer === null} />
@@ -484,12 +508,37 @@ useEffect(() => {
           <div className="lesson-progress"><span style={{ width: `${(quizStep + 1) * 25}%` }} /></div>
           <fieldset className="answers quiz-answers"><legend>{quizQuestions[quizStep].question}</legend>
             {quizQuestions[quizStep].options.map((option, index) => {
-              const answered = quizAnswers[quizStep] !== null
-              return <button key={option.text} type="button" disabled={answered} className={`${quizAnswers[quizStep] === index ? 'is-selected' : ''} ${answered && option.correct ? 'is-correct' : ''}`} onClick={() => {
-                if (answered) return
-                setQuizAnswers(previous => { const next = [...previous]; next[quizStep] = index; return next })
-              }}>{option.text}</button>
-            })}
+  const answered = quizAnswers[quizStep] !== null
+  const selected = quizAnswers[quizStep] === index
+  const status = answered && selected && option.correct
+    ? 'Your answer · Correct answer'
+    : answered && selected
+      ? 'Your answer'
+      : answered && option.correct
+        ? 'Correct answer'
+        : ''
+
+  return (
+    <button
+      key={option.text}
+      type="button"
+      disabled={answered}
+      aria-pressed={selected}
+      className={`${selected ? 'is-selected' : ''} ${answered && option.correct ? 'is-correct' : ''}`}
+      onClick={() => {
+        if (answered) return
+        setQuizAnswers(previous => {
+          const next = [...previous]
+          next[quizStep] = index
+          return next
+        })
+      }}
+    >
+      <span className="answer-text">{option.text}</span>
+      {status && <span className="answer-status">{status}</span>}
+    </button>
+  )
+})}
           </fieldset>
           {quizAnswers[quizStep] !== null && <>
             {feedback(quizQuestions[quizStep].options[quizAnswers[quizStep] as number])}
